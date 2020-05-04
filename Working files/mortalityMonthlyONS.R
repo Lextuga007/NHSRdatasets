@@ -3,6 +3,7 @@ library(janitor)
 library(tidyverse)
 library(stringi)
 library(lubridate)
+library(tidyxl)
 
 # Source and licence acknowledgement
 
@@ -120,64 +121,7 @@ download.file(
   mode = "wb")
 
 
-# Extract all worksheets to individual csv 2010-2019 -------------------------------------------------------------
-
-files_list <- list.files(path = "Working files",
-                         pattern = "Monthly",
-                         full.names = TRUE)
-
-
-read_then_csv <- function(sheet, path) {
-  pathbase <- path %>%
-    basename() %>%
-    tools::file_path_sans_ext()
-  path %>%
-    read_excel(sheet = sheet) %>%
-    write_csv(paste0(pathbase, "-", sheet, ".csv"))
-}
-
-
-for(j in 1:length(files_list)){
-
-  path <- paste0(files_list[j])
-
-  path %>%
-    excel_sheets() %>%
-    set_names() %>%
-    map(read_then_csv, path = path)
-}
-
-# Extract all worksheets to individual csv 2020 -------------------------------------------------------------
-
-files_list <- list.files(path = "Working files",
-                         pattern = "*.xls",
-                         full.names = TRUE)
-
-
-read_then_csv <- function(sheet, path) {
-  pathbase <- path %>%
-    basename() %>%
-    tools::file_path_sans_ext()
-  path %>%
-    read_excel(sheet = sheet) %>%
-    write_csv(paste0(pathbase, "-", sheet, ".csv"))
-}
-
-
-for(j in 1:length(files_list)){
-
-  path <- paste0(files_list[j])
-
-  path %>%
-    excel_sheets() %>%
-    set_names() %>%
-    map(read_then_csv, path = path)
-}
-
-
 # Reload just figure worksheet -------------------------------------
-
-# From
 
 files_list_sheets <- list.files(path = "Working files/Monthly",
                          pattern = "Figures",
@@ -186,10 +130,19 @@ files_list_sheets <- list.files(path = "Working files/Monthly",
 
 for(i in files_list_sheets) {
 
-  x <- read_csv((i), col_types = cols(.default = col_character()))
+  x <- read_xls((i))
 
   assign(i, x)
 }
+
+
+# Formats of cells --------------------------------------------------------
+
+# because bold has been used to denote hierarchy of regions
+
+formats <- xlsx_formats("Working files/Monthly/Monthly2006Mortality-Figures for 2006.xlsx")
+
+formats$local$font$bold
 
 # Format data 2006 - 2010 -----------------------------------------------------------
 
@@ -198,11 +151,13 @@ formatFunction <- function(file){
 ONS <- file %>%
   clean_names %>%
   remove_empty(c("rows","cols")) %>%
+  rename_at(vars(starts_with("Monthly")), ~("codes")) %>%
   mutate(category = coalesce(x2, x3, x4),
-         category = case_when(str_detect(category, "TOTAL REGISTRATIONS") ~ "TOTAL REGISTRATIONS",
+
+         # Remove the footnote numbers in category
+         category = case_when(str_detect(category, pattern = '[0-9]') ~ substr(category, 1, str_locate(category, pattern = '[0-9]') - 1),
                               TRUE ~ category)) %>%
   select(category, everything()) %>%
-  rename_at(vars(starts_with("Monthly")), ~("codes")) %>%
   filter(!codes %in% c('Footnotes:',
                           '1')) %>%
   select(-x2, -x3, -x4) %>%
@@ -232,7 +187,56 @@ Mortality2008 <- formatFunction(`Working files/Monthly/Monthly2008Mortality-Figu
 Mortality2009 <- formatFunction(`Working files/Monthly/Monthly2009Mortality-Figures for 2009.csv`)
 Mortality2010 <- formatFunction(`Working files/Monthly/Monthly2010Mortality-Figures for 2010.csv`)
 
-# Different format for 2011
+# # Format data 2011  -----------------------------------------------------------
+
+# Added column about former district areas
+
+formatFunction <- function(file){
+
+  ONS <- `Working files/Monthly/Monthly2011Mortality-Figures for 2011.csv` %>%
+    clean_names %>%
+    remove_empty(c("rows","cols")) %>%
+    rename_at(vars(starts_with("Monthly")), ~("category_2")) %>%
+    mutate(category_1 = coalesce(category_2, x2, x3),
+
+           # Remove the footnote numbers in category
+           category_1 = case_when(str_detect(category_1, pattern = '[0-9]') ~ substr(category_1, 1, str_locate(category_1, pattern = '[0-9]') - 1),
+                                TRUE ~ category_1)) %>%
+    select(category_1, category_2, everything()) %>%
+    fill(x2) %>%
+    mutate(category_2 = case_when(x2 == "Former districts of:" ~ x2,
+                                  TRUE ~ category_2)) %>%
+    filter(!is.na(x4)) %>%
+    select(-x2, -x3) %>%
+
+    # # move column headers to first row as next chunk will make this the column headers
+    # mutate(category_1 = case_when(is.na(category_1) ~ 'category_1',
+    #                             TRUE ~ category_1),
+    #        category_2 = case_when(is.na(category_2) ~ "category_2",
+    #                          TRUE ~ category_2),
+    # move UA to category 2
+    mutate(category_2 = case_when(str_detect(category_1, " UA") ~ "UA",
+                                  str_detect(category_1, "(Met County)") ~ "Met County",
+                                  TRUE ~ category_2),
+           category_1 = case_when(str_detect(category_1, " UA") ~
+                                    substr(category_1,1,str_locate(category_1, " UA") -1),
+                                  TRUE ~ category_1),
+    )
+
+
+
+  # Push date row to column names
+
+  onsFormattedJanitor <- row_to_names(ONS, 1)
+
+  x <- onsFormattedJanitor %>%
+    pivot_longer(cols = -category:-area_codes,
+                 names_to = "dates",
+                 values_to = "counts")
+
+  return(x)
+
+}
 
 Mortality2011 <- formatFunction(`Working files/Monthly/Monthly2011Mortality-Figures for 2011.csv`)
 Mortality2012 <- formatFunction(`Working files/Monthly/Monthly2012Mortality-Figures for 2012.csv`)
