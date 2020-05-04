@@ -2,4 +2,10 @@
 .Rhistory
 .Ruserdata
 docs/
+<<<<<<< HEAD
 *.csv
+=======
+inst/doc
+doc
+Meta
+>>>>>>> 521c7552681b2c28f5e2bdd77470f2b7d4feb00f
