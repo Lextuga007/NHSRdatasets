@@ -121,28 +121,48 @@ download.file(
   mode = "wb")
 
 
-# Reload just figure worksheet -------------------------------------
+# Extract all worksheets to individual csv 2010-2019 -------------------------------------------------------------
+
+files_list <- list.files(path = "Working files/Monthly",
+                         pattern = "*.xls",
+                         full.names = TRUE)
+
+
+read_then_csv <- function(sheet, path) {
+  pathbase <- path %>%
+    basename() %>%
+    tools::file_path_sans_ext()
+  path %>%
+    read_excel(sheet = sheet) %>%
+    write_csv(paste0(pathbase, "-", sheet, ".csv"))
+}
+
+
+for(j in 1:length(files_list)){
+
+  path <- paste0(files_list[j])
+
+  path %>%
+    excel_sheets() %>%
+    set_names() %>%
+    map(read_then_csv, path = path)
+}
+
+
+# Reload just Figures worksheet -------------------------------------
 
 files_list_sheets <- list.files(path = "Working files/Monthly",
-                         pattern = "Figures",
-                         full.names = TRUE
-                         )
+                                pattern = "Figures",
+                                full.names = TRUE
+)
 
 for(i in files_list_sheets) {
 
-  x <- read_xls((i))
+  x <- read_csv((i), col_types = cols(.default = col_character()))
 
   assign(i, x)
 }
 
-
-# Formats of cells --------------------------------------------------------
-
-# because bold has been used to denote hierarchy of regions
-
-formats <- xlsx_formats("Working files/Monthly/Monthly2006Mortality-Figures for 2006.xlsx")
-
-formats$local$font$bold
 
 # Format data 2006 - 2010 -----------------------------------------------------------
 
