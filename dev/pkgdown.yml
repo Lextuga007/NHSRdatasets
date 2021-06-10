@@ -1,0 +1,14 @@
+pandoc: 2.7.3
+pkgdown: 1.6.1
+pkgdown_sha: ~
+articles:
+  LOS_model: LOS_model.html
+  ae_attendances: ae_attendances.html
+  ons_mortality: ons_mortality.html
+  stranded_model: stranded_model.html
+  synthetic_news_data: synthetic_news_data.html
+last_built: 2021-06-10T21:35Z
+urls:
+  reference: https://nhs-r-community.github.io/NHSRdatasets/reference
+  article: https://nhs-r-community.github.io/NHSRdatasets/articles
+
